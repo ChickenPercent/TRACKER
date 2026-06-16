@@ -56,7 +56,7 @@ export default function FollowButton({ profileId }: Props) {
       onClick={toggle}
       disabled={saving}
       style={{
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "var(--font-body)",
         fontSize: 13,
         fontWeight: 600,
         padding: '8px 20px',

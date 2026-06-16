@@ -132,7 +132,7 @@ export default async function ProfilePage({
             width: 88, height: 88, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 30, color: '#fff',
+            fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 30, color: '#fff',
             border: '4px solid var(--bg)', overflow: 'hidden', marginBottom: 14, marginTop: 20,
           }}>
             {profile.avatar_url ? (

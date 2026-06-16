@@ -174,7 +174,7 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
               {g.cover_url ? (
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${g.cover_url}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: '#ffffff33' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 16, color: 'var(--muted)' }}>
                   {g.title.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                 </div>
               )}

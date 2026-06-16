@@ -160,7 +160,7 @@ export default function DiscoverView({ currentUserId, onViewProfile }: Props) {
                   {g.cover ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${g.cover}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, color: '#ffffff33' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 20, color: 'var(--muted)' }}>
                       {g.name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                     </div>
                   )}
@@ -184,7 +184,7 @@ export default function DiscoverView({ currentUserId, onViewProfile }: Props) {
 function SectionHead({ label, count }: { label: string; count: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-      <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>{label}</span>
       <span style={{ fontSize: 10, color: 'var(--accent2)', fontWeight: 600 }}>{count}</span>
       <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
     </div>

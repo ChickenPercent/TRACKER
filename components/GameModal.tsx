@@ -87,7 +87,7 @@ export default function GameModal({ game, onClose }: Props) {
                   <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${game.cover}')`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
                 </>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 28, color: '#ffffff33' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 28, color: 'var(--muted)' }}>
                   {game.title.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                 </div>
               )}
@@ -95,7 +95,7 @@ export default function GameModal({ game, onClose }: Props) {
 
             {/* Info */}
             <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-              <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, margin: '0 0 10px', lineHeight: 1.2, color: 'var(--text)' }}>
+              <h3 style={{ fontFamily: "var(--font-body)", fontSize: 20, fontWeight: 800, margin: '0 0 10px', lineHeight: 1.2, color: 'var(--text)' }}>
                 {game.title}
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -156,7 +156,7 @@ export default function GameModal({ game, onClose }: Props) {
                     { label: 'backlog',  value: count('backlog'),  color: 'var(--blue)'   },
                   ].filter(s => s.value > 0).map(s => (
                     <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 12 }}>
-                      <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</span>
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</span>
                       <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>{s.label}</span>
                     </div>
                   )))}
@@ -169,7 +169,7 @@ export default function GameModal({ game, onClose }: Props) {
           {reviewed.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>Reviews</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>Reviews</span>
                 <span style={{ fontSize: 10, color: 'var(--accent2)', fontWeight: 600 }}>{reviewed.length}</span>
                 <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
