@@ -1,5 +1,40 @@
 import type { GameEntry } from '@/types'
 
+// Status → CSS variable maps, shared across cards, modals and the feed
+export const STATUS_COLOR: Record<string, string> = {
+  playing: 'var(--cyan)', upcoming: 'var(--amber)', backlog: 'var(--red)', played: 'var(--green)',
+}
+export const STATUS_BG: Record<string, string> = {
+  playing: 'var(--cyan-bg)', upcoming: 'var(--amber-bg)', backlog: 'var(--red-bg)', played: 'var(--green-bg)',
+}
+
+// Up-to-two-letter initials for avatar fallbacks
+export function initials(name?: string | null): string {
+  return (name || '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0]).join('').toUpperCase() || '?'
+}
+
+// Returns a normalised http(s) URL, or null if the input isn't a safe web URL.
+// Guards against javascript:/data: and other non-web schemes for user-supplied
+// avatar/banner URLs.
+export function safeUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  let u: URL
+  try { u = new URL(raw) } catch { return null }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
+  return u.href
+}
+
+// Same as safeUrl, but additionally encodes the handful of characters that could
+// break out of a CSS `url('…')` context (defence-in-depth against CSS injection
+// via user-controlled image URLs). Returns null when the URL isn't usable.
+export function cssUrl(raw: string | null | undefined): string | null {
+  const safe = safeUrl(raw)
+  if (!safe) return null
+  return safe.replace(/["'()\\\n\r]/g, encodeURIComponent)
+}
+
 export function daysUntil(dateStr: string | null): number {
   if (!dateStr) return 9999
   const now = new Date()
@@ -17,7 +52,7 @@ export function fmtDate(g: GameEntry): string {
 export function pillClass(g: GameEntry): string {
   if (g.status === 'played')  return 'pill pill-green'
   if (g.status === 'playing') return 'pill pill-cyan'
-  if (g.status === 'backlog') return 'pill pill-blue'
+  if (g.status === 'backlog') return 'pill pill-red'
   if (g.tbd) return 'pill pill-purple'
   const d = daysUntil(g.date)
   if (d < 0)   return 'pill pill-muted'

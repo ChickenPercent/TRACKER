@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchGames, coverUrl, mapPlatforms } from '@/lib/igdb'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
+  // Only signed-in users may spend our IGDB/Twitch quota
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const q = new URL(request.url).searchParams.get('q')
   if (!q) return NextResponse.json({ error: 'Missing q' }, { status: 400 })
 

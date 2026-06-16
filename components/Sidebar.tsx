@@ -1,6 +1,6 @@
 'use client'
 
-import { daysUntil, fmtDate } from '@/lib/utils'
+import { daysUntil, fmtDate, initials } from '@/lib/utils'
 import type { GameEntry } from '@/types'
 import type { UserProfile } from './SettingsModal'
 import NotificationBell from './NotificationBell'
@@ -8,13 +8,16 @@ import NotificationBell from './NotificationBell'
 interface Props {
   games: GameEntry[]
   profile: UserProfile | null
+  playingInBacklog: boolean
   onOpenSettings: () => void
   onOpenAddGame: () => void
   onOpenProfile: () => void
   onSignOut: () => void
+  onViewGame?: (game: GameEntry) => void
+  onViewProfile?: (profileId: string) => void
 }
 
-export default function Sidebar({ games, profile, onOpenSettings, onOpenAddGame, onOpenProfile, onSignOut }: Props) {
+export default function Sidebar({ games, profile, playingInBacklog, onOpenSettings, onOpenAddGame, onOpenProfile, onSignOut, onViewGame, onViewProfile }: Props) {
   const upcoming = games
     .filter(g => g.status === 'upcoming' && !g.tbd && (g.date ? daysUntil(g.date) >= 0 : false))
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
@@ -31,24 +34,30 @@ export default function Sidebar({ games, profile, onOpenSettings, onOpenAddGame,
   const offset = C * (1 - pct)
   const isToday = d === 0
 
+  const moreUpcoming = Math.max(0, upcoming.length - 1)
+
   const count = (s: string) => games.filter(g => g.status === s).length
-  const owned = count('backlog') + count('playing') + count('played')
+  const owned = count('backlog') + (playingInBacklog ? count('playing') : 0) + count('played')
   const done = count('played')
   const progress = owned ? Math.round(done / owned * 100) : 0
-
-  const initials = (profile?.display_name || profile?.username || '?')
-    .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
   return (
     <aside>
       {/* User profile chip */}
       {profile && (
-        <div className="sidebar-profile" onClick={onOpenProfile} role="button" title="Edit profile">
+        <div
+          className="sidebar-profile"
+          onClick={onOpenProfile}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenProfile() } }}
+          title="Edit profile"
+        >
           <div className="sidebar-avatar">
             {profile.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.avatar_url} alt={profile.display_name || profile.username} />
-            ) : initials}
+            ) : initials(profile.display_name || profile.username)}
           </div>
           <div className="sidebar-profile-info">
             <div className="sidebar-display-name">{profile.display_name || profile.username}</div>
@@ -70,48 +79,74 @@ export default function Sidebar({ games, profile, onOpenSettings, onOpenAddGame,
       )}
 
       {/* Countdown ring */}
-      <div className="countdown">
-        <div className="countdown-label">Next release</div>
-        {next ? (
+      <div
+        className="countdown"
+        onClick={() => next && onViewGame?.(next)}
+        style={{ position: 'relative', overflow: 'hidden', cursor: next && onViewGame ? 'pointer' : 'default' }}
+      >
+        {/* Cover art background */}
+        {next?.cover && (
           <>
-            <div className="countdown-title">{next.title}</div>
-            <div className="countdown-ring-wrap" title="Ring fills as release day approaches (90-day window)">
-              <div className="ring-box">
-                <svg width="74" height="74" viewBox="0 0 74 74">
-                  <circle className="countdown-ring-bg" cx="37" cy="37" r={R}/>
-                  <circle
-                    className={`countdown-ring-fill${isToday ? ' countdown-ring-pulse' : ''}`}
-                    cx="37" cy="37" r={R}
-                    strokeDasharray={C}
-                    strokeDashoffset={offset}
-                  />
-                </svg>
-                <div className="ring-num">
-                  {isToday ? '🎮' : (
-                    <>
-                      {d}
-                      <small>{d === 1 ? 'day' : 'days'}</small>
-                    </>
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${next.cover}')`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(18px) brightness(.35)', transform: 'scale(1.1)', zIndex: 0 }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, var(--bg2) 100%)', zIndex: 1 }} />
+          </>
+        )}
+        <div style={{ position: 'relative', zIndex: 2 }}>
+          <div className="countdown-label">Next release</div>
+          {next ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
+                {next.cover && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={next.cover} alt="" style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                )}
+                <div className="countdown-title" style={{ marginBottom: 0 }}>{next.title}</div>
+              </div>
+              <div className="countdown-ring-wrap" title="Ring fills as release day approaches (90-day window)">
+                <div className="ring-box">
+                  <svg width="74" height="74" viewBox="0 0 74 74">
+                    <circle className="countdown-ring-bg" cx="37" cy="37" r={R}/>
+                    <circle
+                      className={`countdown-ring-fill${isToday ? ' countdown-ring-pulse' : ''}`}
+                      cx="37" cy="37" r={R}
+                      strokeDasharray={C}
+                      strokeDashoffset={offset}
+                    />
+                  </svg>
+                  <div className="ring-num">
+                    {isToday ? '🎮' : d}
+                  </div>
+                </div>
+                <div className="countdown-sub" style={{ alignItems: 'center', textAlign: 'center' }}>
+                  {isToday
+                    ? <b style={{ color: '#c8960c' }}>Out today!</b>
+                    : <><span>{d === 1 ? 'Releases tomorrow' : `${d} days to go`}</span><span>{fmtDate(next)}</span></>
+                  }
+                  {next.platforms.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {next.platforms.map(p => (
+                        <span key={p} className="plat-tag">{p}</span>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="countdown-sub">
-                {isToday
-                  ? <b style={{ color: 'var(--accent2)' }}>Out today!</b>
-                  : <>{d === 1 ? 'Releases tomorrow' : `${d} days to go`}<br />{fmtDate(next)}</>
-                }
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="countdown-title">Nothing dated yet</div>
-        )}
+              {moreUpcoming > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
+                  +{moreUpcoming} more upcoming
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="countdown-title">Nothing dated yet</div>
+          )}
+        </div>
       </div>
 
       {/* Stats grid */}
       <div className="side-stats">
         {(['upcoming','backlog','playing','played'] as const).map(s => (
-          <div key={s} className="sstat">
+          <div key={s} className={`sstat sstat-${s}`}>
             <div className="sstat-num">{count(s)}</div>
             <div className="sstat-label">{s.charAt(0).toUpperCase() + s.slice(1)}</div>
           </div>
@@ -163,7 +198,7 @@ export default function Sidebar({ games, profile, onOpenSettings, onOpenAddGame,
       {/* Settings / Sign out */}
       <div className="side-section" style={{ marginTop: 'auto' }}>
         <div className="side-btns">
-          <NotificationBell />
+          <NotificationBell onViewProfile={onViewProfile} />
           <button className="side-btn" onClick={onOpenSettings}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3"/>

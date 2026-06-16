@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { STATUS_COLOR, STATUS_BG, initials } from '@/lib/utils'
 import StarRating from '@/components/StarRating'
 
 interface Game {
@@ -27,20 +28,6 @@ interface EntryRow {
     display_name: string | null
     avatar_url: string | null
   } | null
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  playing:  'var(--cyan)',
-  upcoming: 'var(--amber)',
-  backlog:  'var(--blue)',
-  played:   'var(--green)',
-}
-
-const STATUS_BG: Record<string, string> = {
-  playing:  'var(--cyan-bg)',
-  upcoming: 'var(--amber-bg)',
-  backlog:  'var(--blue-bg)',
-  played:   'var(--green-bg)',
 }
 
 export default async function GamePage({
@@ -169,8 +156,6 @@ export default async function GamePage({
             {reviewedEntries.map(entry => {
               const p = entry.profiles
               if (!p) return null
-              const initials = (p.display_name || p.username)
-                .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
               return (
                 <div key={entry.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 20px', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                   <Link href={`/u/${p.username}`} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0, width: 160 }}>
@@ -178,7 +163,7 @@ export default async function GamePage({
                       {p.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={p.avatar_url} alt={p.display_name || p.username} />
-                      ) : initials}
+                      ) : initials(p.display_name || p.username)}
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</div>

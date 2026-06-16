@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import { timeAgo } from '@/lib/utils'
+import { timeAgo, initials } from '@/lib/utils'
 import FollowButton from './FollowButton'
 
 interface NotifRow {
@@ -13,9 +13,14 @@ interface NotifRow {
   read: boolean
   created_at: string
   actor: { username: string; display_name: string | null; avatar_url: string | null } | null
+  game: { id: number; title: string; cover_url: string | null; slug: string } | null
 }
 
-export default function NotificationBell() {
+interface Props {
+  onViewProfile?: (profileId: string) => void
+}
+
+export default function NotificationBell({ onViewProfile }: Props) {
   const [userId, setUserId] = useState<string | null>(null)
   const [items, setItems] = useState<NotifRow[]>([])
   const [open, setOpen] = useState(false)
@@ -27,22 +32,10 @@ export default function NotificationBell() {
 
   useEffect(() => {
     const supabase = createClient()
-    let uid: string
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      uid = user.id
-      setUserId(uid)
-      load(uid)
-
-      const channel = supabase
-        .channel('notifs-' + uid)
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'notifications',
-          filter: `user_id=eq.${uid}`,
-        }, () => load(uid))
-        .subscribe()
-
-      return () => { supabase.removeChannel(channel) }
+      setUserId(user.id)
+      load(user.id)
     })
   }, [])
 
@@ -50,7 +43,7 @@ export default function NotificationBell() {
     const supabase = createClient()
     const { data } = await supabase
       .from('notifications')
-      .select('id, actor_id, type, read, created_at, actor:profiles!actor_id(username, display_name, avatar_url)')
+      .select('id, actor_id, type, read, created_at, actor:profiles!actor_id(username, display_name, avatar_url), game:games!game_id(id, title, cover_url, slug)')
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -156,34 +149,55 @@ export default function NotificationBell() {
               No notifications yet.
             </div>
           ) : items.map(n => {
+            const rowStyle = {
+              padding: '12px 16px',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border)',
+              background: n.read ? 'transparent' : 'color-mix(in srgb, var(--accent) 8%, transparent)',
+            }
+
+            if (n.type === 'game_release' && n.game) {
+              return (
+                <div key={n.id} style={rowStyle}>
+                  <a href={`/game/${n.game.slug}`} style={{ textDecoration: 'none', flexShrink: 0 }} onClick={() => setOpen(false)}>
+                    {n.game.cover_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={n.game.cover_url} alt="" style={{ width: 28, height: 38, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                    ) : (
+                      <div style={{ width: 28, height: 38, borderRadius: 4, background: 'var(--bg3)' }} />
+                    )}
+                  </a>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
+                      <a href={`/game/${n.game.slug}`} onClick={() => setOpen(false)} style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
+                        {n.game.title}
+                      </a>
+                      {' '}is out now!
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{timeAgo(n.created_at)}</div>
+                  </div>
+                </div>
+              )
+            }
+
             const a = n.actor
             if (!a) return null
-            const initials = (a.display_name || a.username)
-              .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
             return (
-              <div
-                key={n.id}
-                style={{
-                  padding: '12px 16px',
-                  display: 'flex',
-                  gap: 10,
-                  alignItems: 'center',
-                  borderBottom: '1px solid var(--border)',
-                  background: n.read ? 'transparent' : 'color-mix(in srgb, var(--accent) 8%, transparent)',
-                }}
-              >
-                <a href={`/u/${a.username}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+              <div key={n.id} style={rowStyle}>
+                <a href={`/u/${a.username}`} onClick={e => { if (onViewProfile) { e.preventDefault(); setOpen(false); onViewProfile(n.actor_id) } }} style={{ textDecoration: 'none', flexShrink: 0 }}>
                   <div className="sidebar-avatar" style={{ width: 32, height: 32, fontSize: 11 }}>
                     {a.avatar_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.avatar_url} alt={a.display_name || a.username} />
-                    ) : initials}
+                    ) : initials(a.display_name || a.username)}
                   </div>
                 </a>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
-                    <a href={`/u/${a.username}`} style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
+                    <a href={`/u/${a.username}`} onClick={e => { if (onViewProfile) { e.preventDefault(); setOpen(false); onViewProfile(n.actor_id) } }} style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
                       {a.display_name || a.username}
                     </a>
                     {' '}started following you

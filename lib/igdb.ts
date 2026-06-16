@@ -105,12 +105,3 @@ export async function searchGames(query: string): Promise<IgdbGame[]> {
   )
   return merged.slice(0, 6)
 }
-
-export async function getGame(id: number): Promise<IgdbGame | null> {
-  const results = await igdbPost(
-    'games',
-    `fields id,name,slug,cover.image_id,first_release_date,platforms.name,aggregated_rating,summary;
-     where id = ${id};`
-  )
-  return results[0] ?? null
-}

@@ -24,7 +24,6 @@ export default function CoverArt({ title, cover, onPreviewShow, onPreviewHide }:
     <div
       className="cover-wrap"
       data-has-cover={String(hasCover)}
-      data-cover={cover || ''}
       onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseEnter}
       onMouseLeave={onPreviewHide}

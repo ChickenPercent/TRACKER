@@ -13,7 +13,7 @@ interface Props {
 
 const OPTS: { v: GameStatus; label: string; dot: string }[] = [
   { v: 'upcoming', label: 'Upcoming', dot: 'var(--amber)' },
-  { v: 'backlog',  label: 'Backlog',  dot: 'var(--blue)' },
+  { v: 'backlog',  label: 'Backlog',  dot: 'var(--red)' },
   { v: 'playing',  label: 'Playing',  dot: 'var(--cyan)' },
   { v: 'played',   label: 'Played',   dot: 'var(--green)' },
 ]
@@ -44,16 +44,25 @@ export default function StatusPopover({ gameId, currentStatus, anchorRect, onSel
 
   return (
     <div ref={popRef} className={`status-pop${isOpen ? ' open' : ''}`}>
-      {OPTS.map(o => (
-        <div
-          key={o.v}
-          className={`status-pop-item${currentStatus === o.v ? ' active-item' : ''}`}
-          onClick={() => { if (gameId) onSelect(gameId, o.v) }}
-        >
-          <span className="pop-dot" style={{ background: o.dot }} />
-          {o.label}
-        </div>
-      ))}
+      {OPTS.map(o => {
+        const active = currentStatus === o.v
+        return (
+          <div
+            key={o.v}
+            className={`status-pop-item${active ? ' active-item' : ''}`}
+            style={active ? { color: o.dot, background: `color-mix(in srgb, ${o.dot} 12%, transparent)` } : undefined}
+            onClick={() => { if (gameId) onSelect(gameId, o.v) }}
+          >
+            <span className="pop-dot" style={{ background: o.dot }} />
+            {o.label}
+            {active && (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto' }}>
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

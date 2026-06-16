@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StarRating from './StarRating'
-import { timeAgo } from '@/lib/utils'
+import { timeAgo, STATUS_COLOR, STATUS_BG, initials } from '@/lib/utils'
 import type { GameEntry } from '@/types'
 
 interface FeedRow {
@@ -19,19 +19,13 @@ interface FeedRow {
   profiles: { username: string; display_name: string | null; avatar_url: string | null } | null
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  playing: 'var(--cyan)', upcoming: 'var(--amber)', backlog: 'var(--blue)', played: 'var(--green)',
-}
-const STATUS_BG: Record<string, string> = {
-  playing: 'var(--cyan-bg)', upcoming: 'var(--amber-bg)', backlog: 'var(--blue-bg)', played: 'var(--green-bg)',
-}
-
 interface Props {
   userId: string
   onViewGame?: (game: GameEntry) => void
+  onViewProfile?: (profileId: string) => void
 }
 
-export default function FeedView({ userId, onViewGame }: Props) {
+export default function FeedView({ userId, onViewGame, onViewProfile }: Props) {
   const [items, setItems] = useState<FeedRow[]>([])
   const [loading, setLoading] = useState(true)
   const [followCount, setFollowCount] = useState(0)
@@ -88,8 +82,6 @@ export default function FeedView({ userId, onViewGame }: Props) {
         const p = item.profiles
         const g = item.games
         if (!p || !g) return null
-        const initials = (p.display_name || p.username)
-          .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
         const isNew = Math.abs(new Date(item.updated_at).getTime() - new Date(item.created_at).getTime()) < 60000
 
         const gameEntry: GameEntry | null = onViewGame ? {
@@ -113,12 +105,12 @@ export default function FeedView({ userId, onViewGame }: Props) {
           <div key={item.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
             {/* User */}
-            <a href={`/u/${p.username}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+            <a href={`/u/${p.username}`} onClick={e => { if (onViewProfile) { e.preventDefault(); onViewProfile(item.user_id) } }} style={{ textDecoration: 'none', flexShrink: 0 }}>
               <div className="sidebar-avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
                 {p.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.avatar_url} alt={p.display_name || p.username} />
-                ) : initials}
+                ) : initials(p.display_name || p.username)}
               </div>
             </a>
 
@@ -142,7 +134,7 @@ export default function FeedView({ userId, onViewGame }: Props) {
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
-                <a href={`/u/${p.username}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
+                <a href={`/u/${p.username}`} onClick={e => { if (onViewProfile) { e.preventDefault(); onViewProfile(item.user_id) } }} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
                   {p.display_name || p.username}
                 </a>
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { STATUS_COLOR, STATUS_BG, initials } from '@/lib/utils'
 import StarRating from './StarRating'
 import type { GameEntry } from '@/types'
 
@@ -15,13 +16,6 @@ interface EntryRow {
     display_name: string | null
     avatar_url: string | null
   } | null
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  playing: 'var(--cyan)', upcoming: 'var(--amber)', backlog: 'var(--blue)', played: 'var(--green)',
-}
-const STATUS_BG: Record<string, string> = {
-  playing: 'var(--cyan-bg)', upcoming: 'var(--amber-bg)', backlog: 'var(--blue-bg)', played: 'var(--green-bg)',
 }
 
 interface Props {
@@ -137,7 +131,14 @@ export default function GameModal({ game, onClose }: Props) {
           {(total > 0 || loading) && (
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end', paddingTop: 14, borderTop: '1px solid var(--border)', marginBottom: 20 }}>
               {loading && total === 0 ? (
-                <span style={{ fontSize: 11, color: 'var(--muted)', paddingTop: 14 }}>Loading community data…</span>
+                <div style={{ display: 'flex', gap: 24, paddingTop: 12 }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div className="skeleton" style={{ width: 40, height: 22, borderRadius: 6 }} />
+                      <div className="skeleton" style={{ width: 52, height: 9, borderRadius: 4 }} />
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <>
                   {avgRating !== null && (
@@ -176,8 +177,6 @@ export default function GameModal({ game, onClose }: Props) {
                 {reviewed.map(entry => {
                   const p = entry.profiles
                   if (!p) return null
-                  const initials = (p.display_name || p.username)
-                    .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
                   return (
                     <div key={entry.id} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                       <a href={`/u/${p.username}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0, width: 130 }}>
@@ -185,7 +184,7 @@ export default function GameModal({ game, onClose }: Props) {
                           {p.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={p.avatar_url} alt={p.display_name || p.username} />
-                          ) : initials}
+                          ) : initials(p.display_name || p.username)}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</div>

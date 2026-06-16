@@ -4,20 +4,22 @@ import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
-import { daysUntil, shade, slugify } from '@/lib/utils'
+import { daysUntil, shade, slugify, safeUrl, STATUS_COLOR } from '@/lib/utils'
+import { rowToEntry } from '@/lib/entries'
 import { THEMES, type GameEntry, type GameStatus } from '@/types'
 import Sidebar from '@/components/Sidebar'
 import GameCard from '@/components/GameCard'
-import CalendarView from '@/components/CalendarView'
-import StatsView from '@/components/StatsView'
 import AddGameForm, { type AddGameData } from '@/components/AddGameForm'
 import EditModal from '@/components/EditModal'
 import SettingsModal, { type UserProfile } from '@/components/SettingsModal'
 import ProfileEditModal from '@/components/ProfileEditModal'
 import GameModal from '@/components/GameModal'
+import ProfileModal from '@/components/ProfileModal'
 import StatusPopover from '@/components/StatusPopover'
 import Toast from '@/components/Toast'
-import FeedView from '@/components/FeedView'
+import ReviewFeed from '@/components/ReviewFeed'
+import DiscoverView from '@/components/DiscoverView'
+import { ListSkeleton } from '@/components/Skeletons'
 
 const PREFS_KEY = 'tracker-prefs-v1'
 
@@ -28,37 +30,22 @@ interface Prefs {
   theme: string
   view: string
   collapsed: Record<string, boolean>
+  playingInBacklog: boolean
 }
 
-const DEFAULT_PREFS: Prefs = { filter: 'all', plat: null, sort: 'date', theme: 'violet', view: 'list', collapsed: {} }
+const DEFAULT_PREFS: Prefs = { filter: 'all', plat: null, sort: 'date', theme: 'violet', view: 'list', collapsed: {}, playingInBacklog: true }
 
 function loadPrefs(): Prefs {
   if (typeof window === 'undefined') return DEFAULT_PREFS
   try {
-    return Object.assign({}, DEFAULT_PREFS, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'))
+    const p: Prefs = Object.assign({}, DEFAULT_PREFS, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'))
+    // The old activity feed tab ('following') is now the reviews feed
+    if (p.view === 'following') p.view = 'reviews'
+    // Calendar and Stats tabs were removed
+    if (p.view === 'calendar' || p.view === 'stats') p.view = 'list'
+    return p
   } catch {
     return DEFAULT_PREFS
-  }
-}
-
-// Transform a Supabase row (user_games joined with games) into a flat GameEntry
-function rowToEntry(row: Record<string, unknown>): GameEntry {
-  const g = row.games as Record<string, unknown>
-  return {
-    id: row.id as string,
-    game_id: g.id as number,
-    title: g.title as string,
-    date: (row.custom_date as string | null) || (g.release_date as string | null),
-    platforms: (g.platforms as string[] | null) || [],
-    cover: g.cover_url as string | null,
-    status: row.status as GameStatus,
-    tbd: row.tbd as boolean,
-    note: (row.note as string) || '',
-    order: (row.backlog_order as number) ?? 9999,
-    rating: (row.rating as number | null) ?? null,
-    review: (row.review as string | null) ?? null,
-    slug: (g.slug as string) || '',
-    summary: (g.summary as string | null) ?? null,
   }
 }
 
@@ -71,10 +58,13 @@ export default function TrackerPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [prefs, setPrefs] = useState<Prefs>(loadPrefs)
+  // Start from defaults so server and first client render match; real prefs are
+  // hydrated from localStorage in the mount effect below (avoids hydration drift).
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
 
   const [editGame, setEditGame] = useState<GameEntry | null>(null)
   const [viewGame, setViewGame] = useState<GameEntry | null>(null)
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showAddGame, setShowAddGame] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -86,10 +76,14 @@ export default function TrackerPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 })
 
-  // ── Init ──
+  // ── Init ── hydrate saved prefs (and apply the saved theme) after mount.
+  // Reading localStorage must happen post-mount so SSR and the first client render
+  // agree (both use DEFAULT_PREFS); this one-time sync is the intended exception.
   useEffect(() => {
-    applyTheme(prefs.theme)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const saved = loadPrefs()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrefs(saved)
+    applyTheme(saved.theme)
   }, [])
 
   useEffect(() => {
@@ -114,25 +108,37 @@ export default function TrackerPage() {
     setLoading(false)
     if (error || !data) return
     const entries = data.map(rowToEntry)
-    setGames(migrateReleased(entries))
+    setGames(migrateReleased(entries, uid))
   }
 
-  function migrateReleased(entries: GameEntry[]): GameEntry[] {
+  function migrateReleased(entries: GameEntry[], uid: string): GameEntry[] {
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    const toMigrate = entries.filter(g =>
-      g.status === 'upcoming' && !g.tbd && g.date && new Date(g.date + 'T00:00:00') < today
+    const migrating = entries.filter(
+      g => g.status === 'upcoming' && !g.tbd && g.date && new Date(g.date + 'T00:00:00') < today
     )
-    if (toMigrate.length > 0) {
-      toMigrate.forEach(g => { g.status = 'backlog' })
-      supabase.from('user_games')
-        .update({ status: 'backlog', updated_at: new Date().toISOString() })
-        .in('id', toMigrate.map(g => g.id))
-        .then(({ error }) => {
-          if (error) setToast('Error saving backlog migration')
-        })
-      setToast(`📦 ${toMigrate.length} game${toMigrate.length > 1 ? 's' : ''} moved to Backlog`)
-    }
-    return entries
+    if (migrating.length === 0) return entries
+
+    const migrateIds = new Set(migrating.map(g => g.id))
+
+    supabase.from('user_games')
+      .update({ status: 'backlog', updated_at: new Date().toISOString() })
+      .in('id', [...migrateIds])
+      .then(({ error }) => {
+        if (error) setToast('Error saving backlog migration')
+      })
+
+    supabase.from('notifications')
+      .insert(migrating.map(g => ({
+        user_id: uid,
+        actor_id: uid,
+        type: 'game_release',
+        game_id: g.game_id,
+      })))
+      .then(() => {})
+
+    setToast(`📦 ${migrating.length} game${migrating.length > 1 ? 's' : ''} moved to Backlog`)
+
+    return entries.map(g => migrateIds.has(g.id) ? { ...g, status: 'backlog' as GameStatus } : g)
   }
 
   // ── Theme ──
@@ -188,6 +194,8 @@ export default function TrackerPage() {
       tbd: !form.date,
       custom_date: null,
       note: form.note,
+      rating: form.rating,
+      review: form.review || null,
     }).select('*, games(*)').single()
 
     if (ugErr || !ugData) { setToast('Error adding game'); return false }
@@ -284,11 +292,21 @@ export default function TrackerPage() {
   }
 
   // ── Profile ──
-  async function saveProfile(updates: { display_name: string; bio: string; avatar_url: string }) {
+  async function saveProfile(updates: { display_name: string; bio: string; avatar_url: string; banner_url: string; top_games: number[] }) {
     if (!userId) return
-    const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
+
+    // Reject non-web image URLs before they can reach the DB (and other users' pages)
+    if (updates.avatar_url && !safeUrl(updates.avatar_url)) { setToast('Avatar URL must be a valid http(s) link'); return }
+    if (updates.banner_url && !safeUrl(updates.banner_url)) { setToast('Banner URL must be a valid http(s) link'); return }
+    const clean = {
+      ...updates,
+      avatar_url: safeUrl(updates.avatar_url) ?? '',
+      banner_url: safeUrl(updates.banner_url) ?? '',
+    }
+
+    const { error } = await supabase.from('profiles').update(clean).eq('id', userId)
     if (error) { setToast('Error saving profile'); return }
-    setProfile(prev => prev ? { ...prev, ...updates } : prev)
+    setProfile(prev => prev ? { ...prev, ...clean } : prev)
     setToast('Profile saved')
   }
 
@@ -306,10 +324,6 @@ export default function TrackerPage() {
     a.download = 'tracker-backup-' + new Date().toISOString().slice(0, 10) + '.json'
     a.click(); URL.revokeObjectURL(a.href)
     setToast('Backup downloaded')
-  }
-
-  function importData() {
-    setToast('Import from JSON is not yet supported in the DB version')
   }
 
   // ── Surprise me ──
@@ -398,8 +412,11 @@ export default function TrackerPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif', fontSize: 14 }}>Loading…</div>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '56px clamp(20px, 6vw, 80px)' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+          <div className="skeleton" style={{ width: 200, height: 28, borderRadius: 8, marginBottom: 28 }} />
+          <ListSkeleton count={6} />
+        </div>
       </div>
     )
   }
@@ -407,7 +424,7 @@ export default function TrackerPage() {
   return (
     <>
       <div className="app">
-        <Sidebar games={games} profile={profile} onOpenSettings={() => setShowSettings(true)} onOpenAddGame={() => setShowAddGame(true)} onOpenProfile={() => setShowProfile(true)} onSignOut={signOut} />
+        <Sidebar games={games} profile={profile} playingInBacklog={prefs.playingInBacklog} onOpenSettings={() => setShowSettings(true)} onOpenAddGame={() => setShowAddGame(true)} onOpenProfile={() => setShowProfile(true)} onSignOut={signOut} onViewGame={setViewGame} onViewProfile={setViewProfileId} />
 
         <main>
           {/* Header */}
@@ -446,7 +463,7 @@ export default function TrackerPage() {
                 Surprise me
               </button>
               <div className="view-toggle">
-                {(['list', 'calendar', 'stats', 'following'] as const).map(v => (
+                {(['list', 'reviews', 'discover'] as const).map(v => (
                   <button
                     key={v}
                     className={prefs.view === v ? 'active' : ''}
@@ -515,7 +532,30 @@ export default function TrackerPage() {
 
               {/* Game list */}
               {filtered.length === 0 ? (
-                <div className="empty">No games match.</div>
+                games.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '64px 24px', maxWidth: 420, margin: '0 auto' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/>
+                        <line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/>
+                        <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.152A4 4 0 0 0 17.32 5z"/>
+                      </svg>
+                    </div>
+                    <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, margin: '0 0 8px' }}>Start your collection</h2>
+                    <p style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 24px' }}>
+                      Track what you&apos;re playing, build your backlog, and count down to upcoming releases. Add your first game to get going.
+                    </p>
+                    <button
+                      onClick={() => setShowAddGame(true)}
+                      style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '12px 24px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 18px color-mix(in srgb, var(--accent) 40%, transparent)' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Add your first game
+                    </button>
+                  </div>
+                ) : (
+                  <div className="empty">No games match your filters.</div>
+                )
               ) : (
                 SECTIONS.map(([status, label]) => {
                   let sectionGames: GameEntry[]
@@ -613,13 +653,18 @@ export default function TrackerPage() {
                     <div key={status}>
                       <div
                         className={`section-head${isCollapsed ? ' collapsed' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={!isCollapsed}
                         onClick={() => savePrefs({ ...prefs, collapsed: { ...prefs.collapsed, [status]: !isCollapsed } })}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); savePrefs({ ...prefs, collapsed: { ...prefs.collapsed, [status]: !isCollapsed } }) } }}
                       >
                         <span className="caret">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="6 9 12 15 18 9"/>
                           </svg>
                         </span>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_COLOR[status], flexShrink: 0, display: 'inline-block' }} />
                         <h2>{label}</h2>
                         <span className="count">{sectionGames.length}</span>
                         <span className="line" />
@@ -635,19 +680,14 @@ export default function TrackerPage() {
             </div>
           )}
 
-          {/* CALENDAR VIEW */}
-          {prefs.view === 'calendar' && (
-            <CalendarView games={games} onEditGame={setEditGame} />
+          {/* REVIEWS VIEW */}
+          {prefs.view === 'reviews' && userId && (
+            <ReviewFeed userId={userId} onViewGame={setViewGame} onViewProfile={setViewProfileId} />
           )}
 
-          {/* STATS VIEW */}
-          {prefs.view === 'stats' && (
-            <StatsView games={games} />
-          )}
-
-          {/* FOLLOWING VIEW */}
-          {prefs.view === 'following' && userId && (
-            <FeedView userId={userId} onViewGame={setViewGame} />
+          {/* DISCOVER VIEW */}
+          {prefs.view === 'discover' && userId && (
+            <DiscoverView currentUserId={userId} onViewProfile={setViewProfileId} />
           )}
         </main>
       </div>
@@ -675,6 +715,9 @@ export default function TrackerPage() {
       {/* Game info modal */}
       <GameModal game={viewGame} onClose={() => setViewGame(null)} />
 
+      {/* Profile modal */}
+      <ProfileModal profileId={viewProfileId} onClose={() => setViewProfileId(null)} />
+
       {/* Edit modal */}
       <EditModal
         key={editGame?.id ?? 'closed'}
@@ -689,7 +732,8 @@ export default function TrackerPage() {
         theme={prefs.theme}
         onTheme={setTheme}
         onExport={exportData}
-        onImport={importData}
+        playingInBacklog={prefs.playingInBacklog}
+        onPlayingInBacklog={v => savePrefs({ ...prefs, playingInBacklog: v })}
         onClose={() => setShowSettings(false)}
       />
 
@@ -697,6 +741,7 @@ export default function TrackerPage() {
       <ProfileEditModal
         open={showProfile}
         profile={profile}
+        games={games}
         onSave={saveProfile}
         onClose={() => setShowProfile(false)}
       />
