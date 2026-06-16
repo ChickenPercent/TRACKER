@@ -221,13 +221,13 @@ export default function AddGameForm({ onAdd }: Props) {
             {igdbMeta?.cover ? (
               <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${igdbMeta.cover}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
             ) : (
-              <span style={{ fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 16, color: 'var(--muted)' }}>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: '#ffffff33' }}>
                 {title.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
               </span>
             )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginBottom: 4 }}>{title}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginBottom: 4 }}>{title}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>{date ? date.slice(0, 4) : 'Release TBA'}</div>
             {platforms && (
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

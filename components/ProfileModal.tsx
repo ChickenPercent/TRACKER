@@ -105,7 +105,7 @@ export default function ProfileModal({ profileId, onClose }: Props) {
                 width: 80, height: 80, borderRadius: '50%',
                 background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 26, color: '#fff',
+                fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 26, color: '#fff',
                 border: '3px solid var(--bg2)', overflow: 'hidden', flexShrink: 0, zIndex: 3,
               }}>
                 {profile.avatar_url ? (
@@ -120,7 +120,7 @@ export default function ProfileModal({ profileId, onClose }: Props) {
               {/* Name + follow button on same row */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: profile.bio ? 6 : 14 }}>
                 <div>
-                  <div style={{ fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 20, color: 'var(--text)', marginBottom: 2 }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, color: 'var(--text)', marginBottom: 2 }}>
                     {profile.display_name || profile.username}
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>

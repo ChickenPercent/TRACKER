@@ -70,7 +70,7 @@ export default function EditModal({ game, onSave, onClose }: Props) {
             {game?.cover ? (
               <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${game.cover}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
             ) : (
-              <span style={{ fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 16, color: 'var(--muted)' }}>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: '#ffffff33' }}>
                 {(title || game?.title || '?').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
               </span>
             )}
@@ -79,7 +79,7 @@ export default function EditModal({ game, onSave, onClose }: Props) {
           <div style={{ flex: 1, minWidth: 0 }}>
             {isIgdb ? (
               <>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginBottom: 4 }}>{title}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>{year ? year : 'Release TBA'}</div>
                 {platformList.length > 0 && (
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

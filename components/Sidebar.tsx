@@ -168,11 +168,11 @@ export default function Sidebar({ games, profile, playingInBacklog, onOpenSettin
       <button
         onClick={onOpenAddGame}
         style={{
-          fontFamily: "var(--font-body)",
+          fontFamily: "'Inter', sans-serif",
           fontSize: 15,
           fontWeight: 700,
-          background: 'var(--accent)',
-          color: '#fdf6e3',
+          background: '#c8960c',
+          color: '#0c0c0f',
           border: 'none',
           borderRadius: 'var(--radius-sm)',
           padding: '16px',
@@ -182,12 +182,12 @@ export default function Sidebar({ games, profile, playingInBacklog, onOpenSettin
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
-          boxShadow: '0 4px 18px color-mix(in srgb, var(--accent) 35%, transparent)',
+          boxShadow: '0 4px 18px #c8960c55',
           transition: 'background .15s, transform .1s',
           letterSpacing: '.01em',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'color-mix(in srgb, var(--accent) 85%, #000)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#d9a420' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#c8960c' }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

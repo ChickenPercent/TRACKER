@@ -125,7 +125,7 @@ export default function FeedView({ userId, onViewGame, onViewProfile }: Props) {
                   <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${g.cover_url}')`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
                 </>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 11, color: 'var(--muted)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 11, color: '#ffffff33' }}>
                   {g.title.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                 </div>
               )}

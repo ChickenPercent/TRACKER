@@ -28,7 +28,7 @@ export default function StatusPicker({ value, onChange, compact = false }: Props
             onClick={() => onChange(s.key)}
             style={{
               padding: compact ? '7px 4px' : '10px 4px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-              fontFamily: "var(--font-body)", fontSize: compact ? 11 : 12, fontWeight: 600,
+              fontFamily: "'Inter', sans-serif", fontSize: compact ? 11 : 12, fontWeight: 600,
               border: active ? `1.5px solid ${STATUS_COLOR[s.key]}` : '1px solid var(--border2)',
               background: active ? `color-mix(in srgb, ${STATUS_COLOR[s.key]} 14%, transparent)` : 'transparent',
               color: active ? STATUS_COLOR[s.key] : 'var(--muted)',

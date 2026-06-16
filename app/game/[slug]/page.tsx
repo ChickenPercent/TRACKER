@@ -95,7 +95,7 @@ export default async function GamePage({
               }} />
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "var(--font-body)", fontWeight: 800, fontSize: 32, color: 'var(--muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 32, color: '#ffffff33' }}>
               {game.title.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
             </div>
           )}
@@ -135,7 +135,7 @@ export default async function GamePage({
                 { label: 'upcoming', value: count('upcoming'), color: 'var(--amber)' },
               ].filter(s => s.value > 0).map(s => (
                 <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</span>
+                  <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</span>
                   <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>{s.label}</span>
                 </div>
               )))}
@@ -148,7 +148,7 @@ export default async function GamePage({
       {reviewedEntries.length > 0 && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>Reviews</span>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--muted)' }}>Reviews</span>
             <span style={{ fontSize: 10, color: 'var(--accent2)', fontWeight: 600 }}>{reviewedEntries.length}</span>
             <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
