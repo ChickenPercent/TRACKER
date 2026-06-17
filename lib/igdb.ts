@@ -105,3 +105,25 @@ export async function searchGames(query: string): Promise<IgdbGame[]> {
   )
   return merged.slice(0, 6)
 }
+
+// Batch-fetch critic ratings for existing games (used to backfill rows added
+// before igdb_rating was tracked). IGDB allows large `where id = (...)` lists,
+// but we chunk conservatively to keep request bodies small.
+export async function getRatingsByIds(ids: number[]): Promise<Map<number, number | null>> {
+  const out = new Map<number, number | null>()
+  const positiveIds = ids.filter(id => id > 0)
+  const chunkSize = 100
+
+  for (let i = 0; i < positiveIds.length; i += chunkSize) {
+    const chunk = positiveIds.slice(i, i + chunkSize)
+    const rows = await igdbPost(
+      'games',
+      `fields id,aggregated_rating; where id = (${chunk.join(',')}); limit ${chunk.length};`
+    ) as { id: number; aggregated_rating?: number }[]
+    for (const row of rows) {
+      const r = row.aggregated_rating
+      out.set(row.id, typeof r === 'number' && Number.isFinite(r) ? Math.round(r * 10) / 10 : null)
+    }
+  }
+  return out
+}

@@ -31,6 +31,8 @@ export default function ProfileModal({ profileId, onClose }: Props) {
   const [followingCount, setFollowingCount] = useState(0)
   const [loading, setLoading] = useState(false)
 
+  // Fetch the previewed profile each time a different profileId is opened.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!profileId) { setProfile(null); setGames([]); return }
     setLoading(true)
@@ -48,6 +50,7 @@ export default function ProfileModal({ profileId, onClose }: Props) {
       setLoading(false)
     })
   }, [profileId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!profileId) return

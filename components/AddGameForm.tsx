@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import StarRating from './StarRating'
 import StatusPicker from './StatusPicker'
+import { cleanRating } from '@/lib/utils'
 import type { GameStatus } from '@/types'
 
 export interface AddGameData {
@@ -17,6 +18,7 @@ export interface AddGameData {
   summary: string | null
   rating: number | null
   review: string
+  igdbRating: number | null
 }
 
 interface IgdbResult {
@@ -51,7 +53,7 @@ export default function AddGameForm({ onAdd }: Props) {
   const [note, setNote] = useState('')
   const [rating, setRating] = useState<number | null>(null)
   const [review, setReview] = useState('')
-  const [igdbMeta, setIgdbMeta] = useState<{ id: number; slug: string; cover: string | null; summary: string | null } | null>(null)
+  const [igdbMeta, setIgdbMeta] = useState<{ id: number; slug: string; cover: string | null; summary: string | null; rating: number | null } | null>(null)
 
   const handleQaSearch = useCallback((q: string) => {
     setQaSearch(q)
@@ -76,7 +78,7 @@ export default function AddGameForm({ onAdd }: Props) {
     setTitle(r.name)
     setDate(r.release_date || '')
     setPlatforms(r.platforms.join(', '))
-    setIgdbMeta({ id: r.id, slug: r.slug, cover: r.cover, summary: r.summary })
+    setIgdbMeta({ id: r.id, slug: r.slug, cover: r.cover, summary: r.summary, rating: r.rating })
     const isOut = r.release_date ? new Date(r.release_date + 'T00:00:00') <= new Date() : false
     setStatus(isOut ? 'backlog' : 'upcoming')
     setRating(null); setReview(''); setNote('')
@@ -107,6 +109,7 @@ export default function AddGameForm({ onAdd }: Props) {
       igdb_id: igdbMeta?.id ?? null,
       slug: igdbMeta?.slug ?? null,
       summary: igdbMeta?.summary ?? null,
+      igdbRating: igdbMeta?.rating ?? null,
       rating: status === 'played' ? rating : null,
       review: status === 'played' ? review : '',
     })
@@ -214,6 +217,7 @@ export default function AddGameForm({ onAdd }: Props) {
 
   // ── CONFIRM PHASE ──
   if (phase === 'confirm') {
+    const criticRating = cleanRating(igdbMeta?.rating)
     return (
       <div>
         <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
@@ -228,7 +232,14 @@ export default function AddGameForm({ onAdd }: Props) {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 17, fontWeight: 700, lineHeight: 1.25, marginBottom: 4 }}>{title}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>{date ? date.slice(0, 4) : 'Release TBA'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{date ? date.slice(0, 4) : 'Release TBA'}</span>
+              {criticRating !== null && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 14%, transparent)', borderRadius: 4, padding: '2px 6px' }}>
+                  {Math.round(criticRating)}% critic
+                </span>
+              )}
+            </div>
             {platforms && (
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {platforms.split(',').map(p => p.trim()).filter(Boolean).map(p => (

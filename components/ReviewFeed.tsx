@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import StarRating from './StarRating'
 import { timeAgo, initials } from '@/lib/utils'
 import { ListSkeleton } from './Skeletons'
+import EmptyState from './EmptyState'
+import ReactionBar from './ReactionBar'
 import type { GameEntry } from '@/types'
 
 interface ReviewRow {
@@ -92,8 +94,8 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
 
   async function react(reviewId: string, reaction: Reaction) {
     const supabase = createClient()
-    const current = reactions[reviewId] || { like: 0, dislike: 0, mine: null }
-    const removing = current.mine === reaction
+    const prevSnapshot = reactions[reviewId] || { like: 0, dislike: 0, mine: null }
+    const removing = prevSnapshot.mine === reaction
 
     // Optimistic update
     setReactions(prev => {
@@ -109,13 +111,16 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
       return { ...prev, [reviewId]: c }
     })
 
-    if (removing) {
-      await supabase.from('review_reactions').delete().eq('user_id', userId).eq('review_id', reviewId)
-    } else {
-      await supabase.from('review_reactions').upsert(
-        { user_id: userId, review_id: reviewId, reaction },
-        { onConflict: 'user_id,review_id' }
-      )
+    const { error } = removing
+      ? await supabase.from('review_reactions').delete().eq('user_id', userId).eq('review_id', reviewId)
+      : await supabase.from('review_reactions').upsert(
+          { user_id: userId, review_id: reviewId, reaction },
+          { onConflict: 'user_id,review_id' }
+        )
+
+    // Roll back the optimistic update if the write failed, so UI matches the DB
+    if (error) {
+      setReactions(prev => ({ ...prev, [reviewId]: prevSnapshot }))
     }
   }
 
@@ -125,16 +130,32 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
 
   if (followCount === 0) {
     return (
-      <div className="empty" style={{ paddingTop: 60 }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>✍️</div>
-        <div style={{ marginBottom: 8 }}>You&apos;re not following anyone yet.</div>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Follow other players to read their reviews here.</div>
-      </div>
+      <EmptyState
+        icon={
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        }
+        title="No reviews yet"
+        description="Follow other players and their reviews will show up here, newest first."
+      />
     )
   }
 
   if (items.length === 0) {
-    return <div className="empty">No reviews yet from people you follow.</div>
+    return (
+      <EmptyState
+        icon={
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        }
+        title="No reviews yet"
+        description="Nobody you follow has written a review yet. Check back once they do."
+      />
+    )
   }
 
   return (
@@ -159,6 +180,7 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
           rating: item.rating,
           review: item.review,
           summary: null,
+          igdbRating: null,
         } : null
 
         const c = reactions[item.id] || { like: 0, dislike: 0, mine: null }
@@ -223,30 +245,13 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
               </p>
 
               {/* Footer: reactions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
-              <button
-                onClick={() => react(item.id, 'like')}
-                aria-label="Like review"
-                aria-pressed={c.mine === 'like'}
-                style={reactBtnStyle(c.mine === 'like', 'var(--green)')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill={c.mine === 'like' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                  <path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>
-                </svg>
-                {c.like > 0 && <span>{c.like}</span>}
-              </button>
-
-              <button
-                onClick={() => react(item.id, 'dislike')}
-                aria-label="Dislike review"
-                aria-pressed={c.mine === 'dislike'}
-                style={reactBtnStyle(c.mine === 'dislike', 'var(--red)')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill={c.mine === 'dislike' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                  <path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/>
-                </svg>
-                {c.dislike > 0 && <span>{c.dislike}</span>}
-              </button>
+              <div style={{ marginTop: 14 }}>
+                <ReactionBar
+                  like={c.like}
+                  dislike={c.dislike}
+                  mine={c.mine}
+                  onReact={r => react(item.id, r)}
+                />
               </div>
 
             </div>
@@ -255,21 +260,4 @@ export default function ReviewFeed({ userId, onViewGame, onViewProfile }: Props)
       })}
     </div>
   )
-}
-
-function reactBtnStyle(active: boolean, activeColor: string): React.CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 5,
-    padding: '5px 10px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border2)',
-    background: active ? `color-mix(in srgb, ${activeColor} 15%, transparent)` : 'transparent',
-    color: active ? activeColor : 'var(--muted)',
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'color .15s, background .15s, border-color .15s',
-  }
 }

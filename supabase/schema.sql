@@ -99,6 +99,14 @@ create table notifications (
 
 create index notifications_user_id_idx on notifications(user_id);
 
+-- Dedup guards: at most one release alert per (user, game) and one follow alert
+-- per (recipient, follower). Partial indexes so the two notification types don't
+-- interfere with each other.
+create unique index notifications_game_release_uniq
+  on notifications (user_id, game_id) where type = 'game_release';
+create unique index notifications_follow_uniq
+  on notifications (user_id, actor_id) where type = 'follow';
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Review reactions (like / dislike on another user's review)
 -- A review is identified by the user_games row that carries the review text.

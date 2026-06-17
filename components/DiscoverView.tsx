@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { initials } from '@/lib/utils'
 import { GameGridSkeleton } from './Skeletons'
+import EmptyState from './EmptyState'
 
 interface UserResult {
   id: string
@@ -47,13 +48,19 @@ export default function DiscoverView({ currentUserId, onViewProfile }: Props) {
     setState('loading')
     timer.current = setTimeout(async () => {
       const term = q.trim()
+      // PostgREST .or() treats commas/parens as filter syntax, so strip any chars
+      // that could break (or inject into) the filter string before interpolating.
+      const safeTerm = term.replace(/[,()*\\%]/g, '').trim()
+
       const [userRes, gameRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url')
-          .or(`username.ilike.%${term}%,display_name.ilike.%${term}%`)
-          .neq('id', currentUserId)
-          .limit(8),
+        safeTerm
+          ? supabase
+              .from('profiles')
+              .select('id, username, display_name, avatar_url')
+              .or(`username.ilike.%${safeTerm}%,display_name.ilike.%${safeTerm}%`)
+              .neq('id', currentUserId)
+              .limit(8)
+          : Promise.resolve({ data: [] as UserResult[] }),
         fetch(`/api/igdb/search?q=${encodeURIComponent(term)}`)
           .then(r => r.json())
           .catch(() => ({ results: [] })),
@@ -104,11 +111,15 @@ export default function DiscoverView({ currentUserId, onViewProfile }: Props) {
       </div>
 
       {state === 'idle' && (
-        <div className="empty" style={{ paddingTop: 48 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-          <div style={{ marginBottom: 8 }}>Discover players and games.</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Search by username or game title to get started.</div>
-        </div>
+        <EmptyState
+          icon={
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          }
+          title="Discover players and games"
+          description="Search by username to find other players, or by title to look up any game in the catalogue."
+        />
       )}
 
       {state === 'loading' && (
@@ -119,7 +130,15 @@ export default function DiscoverView({ currentUserId, onViewProfile }: Props) {
       )}
 
       {state === 'done' && users.length === 0 && games.length === 0 && (
-        <div className="empty">No players or games found for “{query}”.</div>
+        <EmptyState
+          icon={
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          }
+          title="No matches"
+          description={`Nothing found for “${query}”. Try a different spelling or a shorter term.`}
+        />
       )}
 
       {state === 'done' && users.length > 0 && (

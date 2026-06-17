@@ -19,5 +19,6 @@ export function rowToEntry(row: Record<string, unknown>): GameEntry {
     review: (row.review as string | null) ?? null,
     slug: (g.slug as string) || '',
     summary: (g.summary as string | null) ?? null,
+    igdbRating: (g.igdb_rating as number | null) ?? null,
   }
 }

@@ -22,6 +22,8 @@ export default function ProfileEditModal({ open, profile, games, onSave, onClose
   const [gameSearch, setGameSearch] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Seed the form fields from the profile each time the modal opens.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setDisplayName(profile?.display_name || '')
@@ -32,6 +34,7 @@ export default function ProfileEditModal({ open, profile, games, onSave, onClose
       setGameSearch('')
     }
   }, [open, profile])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!open) return

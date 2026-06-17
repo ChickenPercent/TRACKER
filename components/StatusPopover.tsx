@@ -47,20 +47,22 @@ export default function StatusPopover({ gameId, currentStatus, anchorRect, onSel
       {OPTS.map(o => {
         const active = currentStatus === o.v
         return (
-          <div
+          <button
             key={o.v}
+            type="button"
             className={`status-pop-item${active ? ' active-item' : ''}`}
+            aria-current={active}
             style={active ? { color: o.dot, background: `color-mix(in srgb, ${o.dot} 12%, transparent)` } : undefined}
             onClick={() => { if (gameId) onSelect(gameId, o.v) }}
           >
             <span className="pop-dot" style={{ background: o.dot }} />
             {o.label}
             {active && (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto' }} aria-hidden="true">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             )}
-          </div>
+          </button>
         )
       })}
     </div>

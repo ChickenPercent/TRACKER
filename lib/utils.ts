@@ -8,6 +8,14 @@ export const STATUS_BG: Record<string, string> = {
   playing: 'var(--cyan-bg)', upcoming: 'var(--amber-bg)', backlog: 'var(--red-bg)', played: 'var(--green-bg)',
 }
 
+// Coerces a possibly-string (Postgres numeric columns serialize as strings)
+// or corrupted rating value into a clean finite number, or null.
+export function cleanRating(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 // Up-to-two-letter initials for avatar fallbacks
 export function initials(name?: string | null): string {
   return (name || '?')

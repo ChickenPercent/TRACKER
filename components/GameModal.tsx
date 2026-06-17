@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { STATUS_COLOR, STATUS_BG, initials } from '@/lib/utils'
+import { STATUS_COLOR, STATUS_BG, initials, cleanRating } from '@/lib/utils'
 import StarRating from './StarRating'
 import type { GameEntry } from '@/types'
 
@@ -27,6 +27,9 @@ export default function GameModal({ game, onClose }: Props) {
   const [entries, setEntries] = useState<EntryRow[]>([])
   const [loading, setLoading] = useState(false)
 
+  // Fetch community data each time a different game is opened. Resetting/loading
+  // state in response to the game prop changing is the intended use here.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     if (!game) { setEntries([]); return }
     setLoading(true)
@@ -40,6 +43,7 @@ export default function GameModal({ game, onClose }: Props) {
         setLoading(false)
       })
   }, [game?.game_id])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (!game) return
@@ -59,6 +63,7 @@ export default function GameModal({ game, onClose }: Props) {
   const reviewed = entries.filter(e => e.rating !== null || e.review)
   const releaseYear = game.date ? new Date(game.date + 'T00:00:00').getFullYear() : null
   const isOnPC = (game.platforms || []).includes('PC')
+  const criticRating = cleanRating(game.igdbRating)
 
   return (
     <div className="modal-bg open" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -100,6 +105,11 @@ export default function GameModal({ game, onClose }: Props) {
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 {releaseYear && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{releaseYear}</span>}
+                {criticRating !== null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 14%, transparent)', borderRadius: 4, padding: '2px 7px' }}>
+                    {Math.round(criticRating)}% critic
+                  </span>
+                )}
                 {(game.platforms || []).map(p => (
                   <span key={p} className="plat-tag">{p}</span>
                 ))}

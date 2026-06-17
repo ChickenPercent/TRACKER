@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { THEMES } from '@/types'
 
 export interface UserProfile {
@@ -20,10 +20,22 @@ interface Props {
   onExport: () => void
   playingInBacklog: boolean
   onPlayingInBacklog: (v: boolean) => void
+  onBackfillRatings: () => Promise<{ updated: number; checked: number } | null>
   onClose: () => void
 }
 
-export default function SettingsModal({ open, theme, onTheme, onExport, playingInBacklog, onPlayingInBacklog, onClose }: Props) {
+export default function SettingsModal({ open, theme, onTheme, onExport, playingInBacklog, onPlayingInBacklog, onBackfillRatings, onClose }: Props) {
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
+
+  async function handleBackfill() {
+    setBackfilling(true)
+    setBackfillResult(null)
+    const res = await onBackfillRatings()
+    setBackfilling(false)
+    setBackfillResult(res ? `Updated ${res.updated} of ${res.checked} games checked.` : 'Backfill failed — see toast.')
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -57,7 +69,7 @@ export default function SettingsModal({ open, theme, onTheme, onExport, playingI
         <div className="settings-section">
           <h4>Backlog progress</h4>
           <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-            <span>Include "Now Playing" in backlog count</span>
+            <span>Include &ldquo;Now Playing&rdquo; in backlog count</span>
             <input
               type="checkbox"
               checked={playingInBacklog}
@@ -78,7 +90,17 @@ export default function SettingsModal({ open, theme, onTheme, onExport, playingI
               </svg>
               Export backup
             </button>
+            <button className="side-btn" onClick={handleBackfill} disabled={backfilling}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              {backfilling ? 'Backfilling…' : 'Backfill critic scores'}
+            </button>
           </div>
+          {backfillResult && (
+            <p className="hint" style={{ marginTop: 8 }}>{backfillResult}</p>
+          )}
         </div>
 
         <div className="form-actions">

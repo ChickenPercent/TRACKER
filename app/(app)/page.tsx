@@ -19,6 +19,7 @@ import StatusPopover from '@/components/StatusPopover'
 import Toast from '@/components/Toast'
 import ReviewFeed from '@/components/ReviewFeed'
 import DiscoverView from '@/components/DiscoverView'
+import EmptyState from '@/components/EmptyState'
 import { ListSkeleton } from '@/components/Skeletons'
 
 const PREFS_KEY = 'tracker-prefs-v1'
@@ -107,38 +108,48 @@ export default function TrackerPage() {
       .eq('user_id', uid)
     setLoading(false)
     if (error || !data) return
-    const entries = data.map(rowToEntry)
-    setGames(migrateReleased(entries, uid))
-  }
 
-  function migrateReleased(entries: GameEntry[], uid: string): GameEntry[] {
+    const entries = data.map(rowToEntry)
+
+    // Games whose release date has passed but are still marked "upcoming".
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    const migrating = entries.filter(
+    const released = entries.filter(
       g => g.status === 'upcoming' && !g.tbd && g.date && new Date(g.date + 'T00:00:00') < today
     )
-    if (migrating.length === 0) return entries
+    const releasedIds = new Set(released.map(g => g.id))
 
-    const migrateIds = new Set(migrating.map(g => g.id))
+    // Reflect the migration in the UI immediately, then persist + notify.
+    setGames(entries.map(g => releasedIds.has(g.id) ? { ...g, status: 'backlog' as GameStatus } : g))
+    if (released.length > 0) void persistReleasedGames(uid, released)
+  }
 
-    supabase.from('user_games')
+  // Side effects for newly-released games: flip them to Backlog and create a
+  // one-time "out now" notification each. Deduped against existing notifications
+  // so reloading the app (or a second tab) never produces duplicates.
+  async function persistReleasedGames(uid: string, released: GameEntry[]) {
+    const { error: migErr } = await supabase
+      .from('user_games')
       .update({ status: 'backlog', updated_at: new Date().toISOString() })
-      .in('id', [...migrateIds])
-      .then(({ error }) => {
-        if (error) setToast('Error saving backlog migration')
-      })
+      .in('id', released.map(g => g.id))
+    if (migErr) { setToast('Error saving backlog migration'); return }
 
-    supabase.from('notifications')
-      .insert(migrating.map(g => ({
-        user_id: uid,
-        actor_id: uid,
-        type: 'game_release',
-        game_id: g.game_id,
-      })))
-      .then(() => {})
+    setToast(`📦 ${released.length} game${released.length > 1 ? 's' : ''} moved to Backlog`)
 
-    setToast(`📦 ${migrating.length} game${migrating.length > 1 ? 's' : ''} moved to Backlog`)
+    const gameIds = released.map(g => g.game_id)
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('game_id')
+      .eq('user_id', uid)
+      .eq('type', 'game_release')
+      .in('game_id', gameIds)
+    const already = new Set((existing || []).map(n => n.game_id as number))
 
-    return entries.map(g => migrateIds.has(g.id) ? { ...g, status: 'backlog' as GameStatus } : g)
+    const toInsert = released.filter(g => !already.has(g.game_id))
+    if (toInsert.length > 0) {
+      await supabase.from('notifications').insert(
+        toInsert.map(g => ({ user_id: uid, actor_id: uid, type: 'game_release', game_id: g.game_id }))
+      )
+    }
   }
 
   // ── Theme ──
@@ -184,6 +195,7 @@ export default function TrackerPage() {
       release_date: form.date || null,
       platforms: form.platforms,
       summary: form.summary,
+      igdb_rating: form.igdbRating,
     })
     if (gErr) { setToast('Error saving game'); return false }
 
@@ -324,6 +336,20 @@ export default function TrackerPage() {
     a.download = 'tracker-backup-' + new Date().toISOString().slice(0, 10) + '.json'
     a.click(); URL.revokeObjectURL(a.href)
     setToast('Backup downloaded')
+  }
+
+  // ── Backfill critic scores (one-off maintenance for games added before igdb_rating existed) ──
+  async function backfillRatings(): Promise<{ updated: number; checked: number } | null> {
+    try {
+      const res = await fetch('/api/igdb/backfill-ratings', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { setToast(json.error || 'Backfill failed'); return null }
+      if (userId) await loadGames(userId)
+      return { updated: json.updated, checked: json.checked }
+    } catch {
+      setToast('Backfill failed')
+      return null
+    }
   }
 
   // ── Surprise me ──
@@ -533,26 +559,26 @@ export default function TrackerPage() {
               {/* Game list */}
               {filtered.length === 0 ? (
                 games.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '64px 24px', maxWidth: 420, margin: '0 auto' }}>
-                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <EmptyState
+                    icon={
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/>
                         <line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/>
                         <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.152A4 4 0 0 0 17.32 5z"/>
                       </svg>
-                    </div>
-                    <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, margin: '0 0 8px' }}>Start your collection</h2>
-                    <p style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 24px' }}>
-                      Track what you&apos;re playing, build your backlog, and count down to upcoming releases. Add your first game to get going.
-                    </p>
-                    <button
-                      onClick={() => setShowAddGame(true)}
-                      style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '12px 24px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 18px color-mix(in srgb, var(--accent) 40%, transparent)' }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Add your first game
-                    </button>
-                  </div>
+                    }
+                    title="Start your collection"
+                    description="Track what you're playing, build your backlog, and count down to upcoming releases. Add your first game to get going."
+                    action={
+                      <button
+                        onClick={() => setShowAddGame(true)}
+                        style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', padding: '12px 24px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 18px color-mix(in srgb, var(--accent) 40%, transparent)' }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add your first game
+                      </button>
+                    }
+                  />
                 ) : (
                   <div className="empty">No games match your filters.</div>
                 )
@@ -734,6 +760,7 @@ export default function TrackerPage() {
         onExport={exportData}
         playingInBacklog={prefs.playingInBacklog}
         onPlayingInBacklog={v => savePrefs({ ...prefs, playingInBacklog: v })}
+        onBackfillRatings={backfillRatings}
         onClose={() => setShowSettings(false)}
       />
 

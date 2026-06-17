@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { STATUS_COLOR, STATUS_BG, initials } from '@/lib/utils'
+import { STATUS_COLOR, STATUS_BG, initials, cleanRating } from '@/lib/utils'
+import { getRatingsByIds } from '@/lib/igdb'
 import StarRating from '@/components/StarRating'
+import ReviewReactions from '@/components/ReviewReactions'
 
 interface Game {
   id: number
@@ -64,6 +66,21 @@ export default async function GamePage({
   const reviewedEntries = entries.filter(e => e.rating !== null || e.review)
   const releaseYear = game.release_date ? new Date(game.release_date + 'T00:00:00').getFullYear() : null
 
+  // Self-heal: if an IGDB-sourced game has no critic score yet, fetch it once and
+  // cache it back to the games row so future views (for everyone) are instant.
+  let criticRating = cleanRating(game.igdb_rating)
+  if (criticRating === null && game.id > 0) {
+    try {
+      const fetched = (await getRatingsByIds([game.id])).get(game.id) ?? null
+      if (fetched !== null) {
+        criticRating = fetched
+        await supabase.from('games').update({ igdb_rating: fetched }).eq('id', game.id)
+      }
+    } catch {
+      // best-effort — ignore IGDB/DB hiccups, the badge just stays hidden this render
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', maxWidth: 960, margin: '0 auto', padding: '40px 40px 80px' }}>
 
@@ -106,6 +123,11 @@ export default async function GamePage({
           <h1 className="game-title-large">{game.title}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
             {releaseYear && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{releaseYear}</span>}
+            {criticRating !== null && (
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 14%, transparent)', borderRadius: 4, padding: '2px 8px' }}>
+                {Math.round(criticRating)}% critic score
+              </span>
+            )}
             {(game.platforms || []).map(p => (
               <span key={p} className="plat-tag">{p}</span>
             ))}
@@ -178,6 +200,11 @@ export default async function GamePage({
                       </span>
                     </div>
                     {entry.review && <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>{entry.review}</p>}
+                    {entry.review && (
+                      <div style={{ marginTop: 10 }}>
+                        <ReviewReactions reviewId={entry.id} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )

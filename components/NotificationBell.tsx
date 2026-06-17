@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { timeAgo, initials } from '@/lib/utils'
@@ -30,16 +30,7 @@ export default function NotificationBell({ onViewProfile }: Props) {
 
   const unread = items.filter(n => !n.read).length
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      setUserId(user.id)
-      load(user.id)
-    })
-  }, [])
-
-  async function load(uid: string) {
+  const load = useCallback(async (uid: string) => {
     const supabase = createClient()
     const { data } = await supabase
       .from('notifications')
@@ -48,7 +39,16 @@ export default function NotificationBell({ onViewProfile }: Props) {
       .order('created_at', { ascending: false })
       .limit(30)
     setItems((data || []) as unknown as NotifRow[])
-  }
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+      load(user.id)
+    })
+  }, [load])
 
   async function markRead() {
     if (!userId) return

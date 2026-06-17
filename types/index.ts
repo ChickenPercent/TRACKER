@@ -15,6 +15,7 @@ export interface GameEntry {
   review: string | null
   slug: string
   summary: string | null
+  igdbRating: number | null
 }
 
 export interface Profile {
